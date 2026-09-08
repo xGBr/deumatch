@@ -268,8 +268,19 @@ async function submitLogin(){
     state.view = "admin";
     render();
   }catch(e){
-    console.error(e);
-    state.loginError = "E-mail ou senha inválidos.";
+    console.error("Erro de login:", e.code, e.message);
+    const map = {
+      "auth/invalid-credential": "E-mail ou senha inválidos.",
+      "auth/wrong-password": "E-mail ou senha inválidos.",
+      "auth/user-not-found": "E-mail ou senha inválidos.",
+      "auth/invalid-email": "Formato de e-mail inválido.",
+      "auth/operation-not-allowed": "Login por e-mail/senha não está ativado no Firebase (Authentication > Sign-in method).",
+      "auth/unauthorized-domain": "Este domínio não está autorizado no Firebase (Authentication > Settings > Authorized domains).",
+      "auth/invalid-api-key": "Configuração do Firebase incorreta — confira o firebase-config.js.",
+      "auth/network-request-failed": "Falha de conexão. Verifique sua internet e tente novamente.",
+      "auth/too-many-requests": "Muitas tentativas seguidas. Aguarde um pouco e tente de novo."
+    };
+    state.loginError = map[e.code] || ("Erro: " + (e.code || e.message || "desconhecido"));
     render();
   }
 }
