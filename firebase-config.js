@@ -8,11 +8,19 @@
 //
 // Troque os valores abaixo pelos do SEU projeto:
 // Firebase Console > ⚙️ Configurações do projeto > Seus apps > Config
-export const firebaseConfig = {
-  apiKey: "COLE_AQUI_SUA_API_KEY",
-  authDomain: "SEU-PROJETO.firebaseapp.com",
-  projectId: "SEU-PROJETO",
-  storageBucket: "SEU-PROJETO.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:xxxxxxxxxxxxxxxxxxxxxx"
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyB8dGOcM9TZkr5qQAIV6KVEKlNnn4mxdfw",
+  authDomain: "deu-match-aqui.firebaseapp.com",
+  projectId: "deu-match-aqui",
+  storageBucket: "deu-match-aqui.firebasestorage.app",
+  messagingSenderId: "815414937961",
+  appId: "1:815414937961:web:02c7c14151921f4d7d55f8"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
