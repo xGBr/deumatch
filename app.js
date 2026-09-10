@@ -3,7 +3,7 @@
    Backend: Firebase (Firestore + Authentication)
    ========================================================================== */
 
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig, imageWorkerUrl } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
   getFirestore, doc, setDoc, onSnapshot,
@@ -27,7 +27,9 @@ const DEFAULT_SETTINGS = {
   pixKey: "sua-chave-pix@exemplo.com",
   merchantName: "DEU MATCH AQUI",
   merchantCity: "SUA CIDADE",
-  deliveryFee: 10
+  deliveryFee: 10,
+  openTime: "09:00",
+  closeTime: "19:00"
 };
 
 const DEFAULT_PRODUCTS = [
@@ -57,6 +59,7 @@ let state = {
   settings: clone(DEFAULT_SETTINGS),
   products: clone(DEFAULT_PRODUCTS),
   settingsLoaded: false,
+  productsLoaded: false,
   currentUser: null,
   adminDraft: null,
   loginOpen: false,
@@ -107,8 +110,27 @@ function newOrder(){
   render();
 }
 
+/* ---------- Horário de funcionamento ---------- */
+function isStoreOpen(){
+  const {openTime, closeTime} = state.settings;
+  if(!openTime || !closeTime) return true; // sem horário configurado = sempre aberto
+  const [oh, om] = openTime.split(":").map(Number);
+  const [ch, cm] = closeTime.split(":").map(Number);
+  if(isNaN(oh) || isNaN(om) || isNaN(ch) || isNaN(cm)) return true;
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const openMin = oh*60 + om;
+  const closeMin = ch*60 + cm;
+  if(openMin === closeMin) return true; // igual = sem restrição
+  if(openMin < closeMin) return nowMin >= openMin && nowMin < closeMin;
+  return nowMin >= openMin || nowMin < closeMin; // horário que vira a noite (ex: 18:00–02:00)
+}
+
 /* ---------- Validação e finalização do pedido ---------- */
 function validateOrder(){
+  if(!isStoreOpen()){
+    return {ok:false,msg:"Estamos fechados no momento. Horário de atendimento: "+state.settings.openTime+" às "+state.settings.closeTime+"."};
+  }
   if(cartCount() === 0) return {ok:false,msg:"Sua sacola está vazia."};
   if(!state.customer.name.trim()) return {ok:false,msg:"Informe seu nome."};
   if(!state.customer.phone.trim()) return {ok:false,msg:"Informe seu telefone com DDD."};
@@ -251,7 +273,8 @@ function toast(msg){
 /* ---------- Autenticação / Painel da loja ---------- */
 function openAdmin(){
   if(state.currentUser){
-    state.adminDraft = { settings: clone(state.settings), products: clone(state.products), deletedIds: [] };
+    const draftProducts = clone(state.products).map(p => state.productsLoaded ? p : Object.assign({}, p, {_isNew:true}));
+    state.adminDraft = { settings: clone(state.settings), products: draftProducts, deletedIds: [] };
     state.view = "admin";
   } else {
     state.loginOpen = true; state.loginEmail = ""; state.loginPassword = ""; state.loginError = "";
@@ -264,7 +287,8 @@ async function submitLogin(){
   try{
     await signInWithEmailAndPassword(auth, state.loginEmail.trim(), state.loginPassword);
     state.loginOpen = false;
-    state.adminDraft = { settings: clone(state.settings), products: clone(state.products), deletedIds: [] };
+    const draftProducts = clone(state.products).map(p => state.productsLoaded ? p : Object.assign({}, p, {_isNew:true}));
+    state.adminDraft = { settings: clone(state.settings), products: draftProducts, deletedIds: [] };
     state.view = "admin";
     render();
   }catch(e){
@@ -290,6 +314,52 @@ async function logoutAdmin(){
   render();
 }
 function exitAdmin(){ state.adminDraft = null; state.view = "menu"; render(); }
+function clearProductImage(i){ state.adminDraft.products[i].img = ""; render(); }
+async function uploadProductImage(index, input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!file.type.startsWith("image/")){ toast("Escolha um arquivo de imagem."); input.value = ""; return; }
+  if(file.size > 5*1024*1024){ toast("Imagem muito grande (máximo 5 MB)."); input.value = ""; return; }
+  if(!imageWorkerUrl || imageWorkerUrl.includes("COLOQUE-AQUI")){
+    toast("Configure a URL do Worker de imagens no firebase-config.js.");
+    input.value = "";
+    return;
+  }
+  const p = state.adminDraft.products[index];
+  const oldImg = p.img;
+  p._uploading = true;
+  render();
+  try{
+    const idToken = await auth.currentUser.getIdToken();
+    const form = new FormData();
+    form.append("file", file);
+    form.append("idToken", idToken);
+    form.append("productId", p.id);
+    const resp = await fetch(imageWorkerUrl.replace(/\/$/,"") + "/upload", {method:"POST", body: form});
+    const data = await resp.json();
+    if(!resp.ok || !data.url) throw new Error(data.error || ("Falha no upload (HTTP "+resp.status+")"));
+    state.adminDraft.products[index].img = data.url;
+
+    if(oldImg && oldImg.includes(imageWorkerUrl.replace(/\/$/,""))){
+      try{
+        const oldKey = decodeURIComponent(oldImg.split("/image/")[1] || "");
+        if(oldKey){
+          await fetch(imageWorkerUrl.replace(/\/$/,"") + "/delete", {
+            method: "POST", headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({key: oldKey, idToken})
+          });
+        }
+      }catch(e){ /* imagem antiga: ignora falha ao limpar */ }
+    }
+  }catch(e){
+    console.error("Erro ao enviar imagem:", e);
+    toast("Erro ao enviar imagem: " + (e.message || "desconhecido"));
+  }finally{
+    state.adminDraft.products[index]._uploading = false;
+    input.value = "";
+    render();
+  }
+}
 function addAdminProduct(){
   state.adminDraft.products.push({id:"new-"+Date.now()+Math.floor(Math.random()*1000), category:"", name:"", price:0, desc:"", img:"", _isNew:true});
   render();
@@ -313,8 +383,13 @@ async function saveAdmin(){
     render();
     toast("Configurações salvas com sucesso!");
   }catch(e){
-    console.error(e);
-    toast("Erro ao salvar. Verifique sua conexão e tente novamente.");
+    console.error("Erro ao salvar:", e.code, e.message);
+    const map = {
+      "permission-denied": "Sem permissão para salvar. Confira se as regras do Firestore foram publicadas e se você ainda está logada.",
+      "unavailable": "Sem conexão com o banco de dados. Verifique sua internet e tente de novo.",
+      "not-found": "Um dos itens que estava tentando atualizar não existe mais no banco."
+    };
+    toast(map[e.code] || ("Erro ao salvar: " + (e.code || e.message || "desconhecido")));
   }
 }
 
@@ -340,6 +415,9 @@ function productRow(p){
 function noticeBanner(){
   return '<div class="notice">⚠️ Este cardápio ainda está com dados de exemplo. Configure sua chave Pix, WhatsApp e produtos no <button onclick="openAdmin()">Painel da loja</button>.</div>';
 }
+function closedBanner(){
+  return '<div class="notice">🕒 Estamos fechados no momento. Horário de atendimento: <strong>'+escapeHTML(state.settings.openTime)+' às '+escapeHTML(state.settings.closeTime)+'</strong>. Você pode montar sua sacola, mas só vai conseguir finalizar o pedido dentro do horário.</div>';
+}
 function menuView(){
   const filterCat = state.activeCategory;
   const groups = {}; const order = [];
@@ -350,6 +428,7 @@ function menuView(){
   });
   let html = '<div class="menu">';
   if(!state.settingsLoaded) html += noticeBanner();
+  if(state.settingsLoaded && !isStoreOpen()) html += closedBanner();
   if(order.length === 0){
     html += '<p style="text-align:center;color:var(--cocoa);opacity:.6;padding:40px 0;">Nenhum produto nessa categoria ainda.</p>';
   }
@@ -413,11 +492,11 @@ function confirmationContent(){
     ? '<div class="pix-code">'+escapeHTML(o.pixPayload)+'</div><button class="btn-secondary" onclick="copyPixCode()">Copiar código Pix</button>'
     : '<p class="error-msg">A loja ainda não configurou a chave Pix. Combine o pagamento diretamente pelo WhatsApp.</p>';
   return '<div class="sheet-header"><h2>Pedido pronto! 🎉</h2><button class="close-x" onclick="closeSheet()">✕</button></div>' +
-    '<p class="sheet-note">Escaneie o QR Code no app do seu banco para pagar via Pix. Depois, toque em "Chamar no WhatsApp" para confirmar o pedido com a loja.</p>' +
+    '<p class="sheet-note">Escaneie o QR Code no app do seu banco para pagar via Pix. Depois, toque em "Enviar pedido" para confirmar com a loja.</p>' +
     totalsHtml +
     '<div class="qr-box" id="qrcode-box"></div>' +
     pixBlock +
-    '<a class="btn-whatsapp" href="'+whatsappUrl(o)+'" target="_blank" rel="noopener noreferrer">📲 Chamar no WhatsApp</a>' +
+    '<a class="btn-whatsapp" href="'+whatsappUrl(o)+'" target="_blank" rel="noopener noreferrer">📲 Enviar pedido</a>' +
     '<button class="btn-secondary" onclick="newOrder()">Fazer novo pedido</button>';
 }
 function sheetView(){
@@ -452,6 +531,9 @@ function adminView(){
     '<div class="field"><label>WhatsApp para receber pedidos</label><input type="text" value="'+escapeHTML(s.whatsappNumber)+'" oninput="state.adminDraft.settings.whatsappNumber=this.value" placeholder="5511999999999"></div>' +
     '<p class="field-hint">Formato: código do país + DDD + número, só números (ex: 55 11 99999-9999 → 5511999999999).</p>' +
     '<div class="field"><label>Taxa de entrega (R$)</label><input type="number" step="0.01" min="0" value="'+s.deliveryFee+'" oninput="state.adminDraft.settings.deliveryFee=parseFloat(this.value)||0"></div>' +
+    '<div class="field"><label>Horário de abertura</label><input type="time" value="'+escapeHTML(s.openTime)+'" oninput="state.adminDraft.settings.openTime=this.value"></div>' +
+    '<div class="field"><label>Horário de fechamento</label><input type="time" value="'+escapeHTML(s.closeTime)+'" oninput="state.adminDraft.settings.closeTime=this.value"></div>' +
+    '<p class="field-hint">Fora desse intervalo, o cliente pode navegar no cardápio, mas não consegue finalizar o pedido.</p>' +
     '</div>';
 
   html += '<div class="admin-section"><h3>Recebimento via Pix</h3>' +
@@ -463,13 +545,21 @@ function adminView(){
 
   html += '<div class="admin-section"><h3>Produtos do cardápio</h3>';
   prods.forEach((p, i) => {
+    const uploadLabel = p._uploading ? "Enviando..." : "📷 Enviar foto";
+    const preview = p.img ? '<img src="'+p.img+'" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;">' : '';
+    const removeBtn = p.img ? '<button type="button" class="logout-link" style="margin-top:6px;" onclick="clearProductImage('+i+')">Remover foto</button>' : '';
     html += '<div class="admin-product-row">' +
       '<button class="remove" onclick="removeAdminProduct('+i+')">Remover</button>' +
       '<div class="field"><label>Categoria</label><input type="text" value="'+escapeHTML(p.category)+'" oninput="state.adminDraft.products['+i+'].category=this.value" placeholder="Ex: Copos de Doce"></div>' +
       '<div class="field"><label>Nome</label><input type="text" value="'+escapeHTML(p.name)+'" oninput="state.adminDraft.products['+i+'].name=this.value"></div>' +
       '<div class="field"><label>Preço (R$)</label><input type="number" step="0.01" min="0" value="'+p.price+'" oninput="state.adminDraft.products['+i+'].price=parseFloat(this.value)||0"></div>' +
       '<div class="field"><label>Descrição</label><input type="text" value="'+escapeHTML(p.desc)+'" oninput="state.adminDraft.products['+i+'].desc=this.value"></div>' +
-      '<div class="field"><label>URL da foto (opcional)</label><input type="text" value="'+escapeHTML(p.img)+'" oninput="state.adminDraft.products['+i+'].img=this.value" placeholder="https://..."></div>' +
+      '<div class="field"><label>Foto do produto</label>' + preview +
+        '<input type="file" accept="image/*" id="file-'+i+'" style="display:none" onchange="uploadProductImage('+i+', this)">' +
+        '<button type="button" class="btn-secondary" style="margin-top:0;" '+(p._uploading?'disabled':'')+' onclick="document.getElementById(\'file-'+i+'\').click()">'+uploadLabel+'</button>' +
+        removeBtn +
+      '</div>' +
+      '<div class="field"><label>ou cole o link de uma foto</label><input type="text" value="'+escapeHTML(p.img)+'" oninput="state.adminDraft.products['+i+'].img=this.value" placeholder="https://..."></div>' +
       '</div>';
   });
   html += '<button class="btn-secondary" onclick="addAdminProduct()">+ Adicionar produto</button></div>';
@@ -515,8 +605,10 @@ function init(){
       const list = [];
       snap.forEach(d => list.push(Object.assign({id:d.id}, d.data())));
       state.products = list;
+      state.productsLoaded = true;
     } else {
       state.products = clone(DEFAULT_PRODUCTS);
+      state.productsLoaded = false;
     }
     render();
   }, err => { console.error("Erro ao carregar produtos:", err); });
@@ -531,7 +623,7 @@ function init(){
 Object.assign(window, {
   state, setCategory, addToCart, openSheet, closeSheet, setDeliveryType, newOrder,
   finalizeOrder, copyPixCode, openAdmin, closeLogin, submitLogin, logoutAdmin,
-  exitAdmin, addAdminProduct, removeAdminProduct, saveAdmin
+  exitAdmin, addAdminProduct, removeAdminProduct, saveAdmin, uploadProductImage, clearProductImage
 });
 
 init();
