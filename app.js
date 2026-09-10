@@ -484,6 +484,7 @@ function menuView(){
     html += '<h2 class="category-title">'+escapeHTML(cat)+'</h2>';
     groups[cat].forEach(p => { html += productRow(p); });
   });
+  html += quoteBanner();
   html += '<div class="footer-link">Loja parceira? <button onclick="openAdmin()">Acessar painel administrativo</button></div>';
   html += '</div>';
   return html;
@@ -648,7 +649,7 @@ function render(){
   if(state.view === "admin" && state.adminDraft){
     html = adminView();
   } else {
-    html = headerView() + socialLinksView() + quoteBanner() + categoriesView() + menuView() + cartBarView();
+    html = headerView() + socialLinksView() + categoriesView() + menuView() + cartBarView();
   }
   html += sheetView();
   html += quoteSheetView();
