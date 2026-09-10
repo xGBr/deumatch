@@ -25,10 +25,10 @@ const DEFAULT_SETTINGS = {
   tagline: "Doceria artesanal",
   instagramUrl: "https://www.instagram.com/deumatchdenew/",
   siteUrl: "https://universopromos.com.br/",
-  whatsappNumber: "5519981061966",
-  pixKey: "19981061966",
-  merchantName: "DEU MATCH",
-  merchantCity: "COSMÓPOLIS",
+  whatsappNumber: "5511999999999",
+  pixKey: "sua-chave-pix@exemplo.com",
+  merchantName: "DEU MATCH AQUI",
+  merchantCity: "SUA CIDADE",
   deliveryFee: 10,
   openTime: "09:00",
   closeTime: "19:00"
@@ -68,6 +68,10 @@ let state = {
   loginEmail: "",
   loginPassword: "",
   loginError: "",
+  quoteOpen: false,
+  quote: {name:"", phone:"", description:"", quantity:""},
+  quoteError: "",
+  quoteSubmission: null,
   toastMsg: null
 };
 
@@ -246,6 +250,37 @@ function whatsappUrl(order){
   const num = (state.settings.whatsappNumber||"").replace(/\D/g,"");
   return "https://wa.me/" + num + "?text=" + encodeURIComponent(msg);
 }
+
+/* ---------- Pedido de orçamento / encomenda ---------- */
+function openQuote(){ state.quoteOpen = true; state.quoteError = ""; state.quoteSubmission = null; render(); }
+function closeQuote(){ state.quoteOpen = false; render(); }
+function newQuote(){
+  state.quote = {name:"", phone:"", description:"", quantity:""};
+  state.quoteSubmission = null; state.quoteError = "";
+  render();
+}
+function submitQuote(){
+  if(!state.quote.name.trim()){ state.quoteError = "Informe seu nome."; render(); return; }
+  if(!state.quote.phone.trim()){ state.quoteError = "Informe seu telefone com DDD."; render(); return; }
+  if(!state.quote.description.trim()){ state.quoteError = "Conte o que você precisa."; render(); return; }
+  state.quoteError = "";
+  state.quoteSubmission = Object.assign({}, state.quote);
+  render();
+}
+function quoteWhatsAppUrl(q){
+  const lines = [];
+  lines.push("*Pedido de orçamento – " + state.settings.storeName + "*");
+  lines.push("");
+  lines.push("Nome: " + q.name);
+  lines.push("Telefone: " + q.phone);
+  lines.push("");
+  lines.push("O que precisa:");
+  lines.push(q.description);
+  if(q.quantity && q.quantity.trim()) lines.push("\nQuantidade: " + q.quantity);
+  const msg = lines.join("\n");
+  const num = (state.settings.whatsappNumber||"").replace(/\D/g,"");
+  return "https://wa.me/" + num + "?text=" + encodeURIComponent(msg);
+}
 function copyToClipboard(text){
   if(navigator.clipboard && navigator.clipboard.writeText){ return navigator.clipboard.writeText(text); }
   return new Promise((resolve,reject) => {
@@ -403,7 +438,7 @@ function headerView(){
 function socialLinksView(){
   const links = [];
   if(state.settings.instagramUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.instagramUrl)+'" target="_blank" rel="noopener noreferrer">📷 Instagram</a>');
-  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🌐 Nosso parceiro</a>');
+  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🌐 Nosso site</a>');
   if(links.length === 0) return "";
   return '<div class="social-row">'+links.join("")+'</div>';
 }
@@ -423,6 +458,10 @@ function productRow(p){
 }
 function noticeBanner(){
   return '<div class="notice">⚠️ Este cardápio ainda está com dados de exemplo. Configure sua chave Pix, WhatsApp e produtos no <button onclick="openAdmin()">Painel da loja</button>.</div>';
+}
+function quoteBanner(){
+  return '<div class="quote-banner"><p>🎂 Precisa de uma encomenda especial ou de uma quantidade maior?</p>' +
+    '<button class="btn-secondary" style="display:inline-block;width:auto;padding:9px 20px;margin-top:10px;" onclick="openQuote()">Pedir orçamento</button></div>';
 }
 function closedBanner(){
   return '<div class="notice">🕒 Estamos fechados no momento. Horário de atendimento: <strong>'+escapeHTML(state.settings.openTime)+' às '+escapeHTML(state.settings.closeTime)+'</strong>. Você pode montar sua sacola, mas só vai conseguir finalizar o pedido dentro do horário.</div>';
@@ -513,6 +552,28 @@ function sheetView(){
   const body = state.confirmation ? confirmationContent() : checkoutContent();
   return '<div class="overlay" onclick="if(event.target===this) closeSheet()"><div class="sheet" onclick="event.stopPropagation()">'+body+'</div></div>';
 }
+function quoteFormContent(){
+  return '<div class="sheet-header"><h2>Pedir orçamento</h2><button class="close-x" onclick="closeQuote()">✕</button></div>' +
+    '<p class="sheet-note">Precisa de uma quantidade grande, um sabor especial ou algo fora do cardápio? Conte pra gente que te respondemos pelo WhatsApp.</p>' +
+    '<div class="field"><label>Seu nome</label><input type="text" value="'+escapeHTML(state.quote.name)+'" oninput="state.quote.name=this.value" placeholder="Nome completo"></div>' +
+    '<div class="field"><label>Telefone (com DDD)</label><input type="tel" value="'+escapeHTML(state.quote.phone)+'" oninput="state.quote.phone=this.value" placeholder="(11) 99999-9999"></div>' +
+    '<div class="field"><label>O que você precisa</label><textarea rows="4" oninput="state.quote.description=this.value" placeholder="Ex: docinhos para festa de aniversário, sabores brigadeiro e beijinho...">'+escapeHTML(state.quote.description)+'</textarea></div>' +
+    '<div class="field"><label>Quantidade (opcional)</label><input type="text" value="'+escapeHTML(state.quote.quantity)+'" oninput="state.quote.quantity=this.value" placeholder="Ex: 50 unidades, 2 caixas..."></div>' +
+    (state.quoteError ? '<p class="error-msg">'+escapeHTML(state.quoteError)+'</p>' : "") +
+    '<button class="btn-primary" onclick="submitQuote()">Enviar solicitação</button>';
+}
+function quoteSentContent(){
+  const q = state.quoteSubmission;
+  return '<div class="sheet-header"><h2>Solicitação pronta! 🎉</h2><button class="close-x" onclick="closeQuote()">✕</button></div>' +
+    '<p class="sheet-note">Toque no botão abaixo para enviar sua solicitação de orçamento pelo WhatsApp.</p>' +
+    '<a class="btn-whatsapp" href="'+quoteWhatsAppUrl(q)+'" target="_blank" rel="noopener noreferrer">📲 Enviar pelo WhatsApp</a>' +
+    '<button class="btn-secondary" onclick="newQuote()">Fazer nova solicitação</button>';
+}
+function quoteSheetView(){
+  if(!state.quoteOpen) return "";
+  const body = state.quoteSubmission ? quoteSentContent() : quoteFormContent();
+  return '<div class="overlay" onclick="if(event.target===this) closeQuote()"><div class="sheet" onclick="event.stopPropagation()">'+body+'</div></div>';
+}
 function loginModalView(){
   if(!state.loginOpen) return "";
   return '<div class="overlay overlay-center" onclick="if(event.target===this) closeLogin()">' +
@@ -587,9 +648,10 @@ function render(){
   if(state.view === "admin" && state.adminDraft){
     html = adminView();
   } else {
-    html = headerView() + socialLinksView() + categoriesView() + menuView() + cartBarView();
+    html = headerView() + socialLinksView() + quoteBanner() + categoriesView() + menuView() + cartBarView();
   }
   html += sheetView();
+  html += quoteSheetView();
   html += loginModalView();
   html += toastView();
   document.getElementById("root").innerHTML = html;
@@ -634,7 +696,8 @@ function init(){
 Object.assign(window, {
   state, setCategory, addToCart, openSheet, closeSheet, setDeliveryType, newOrder,
   finalizeOrder, copyPixCode, openAdmin, closeLogin, submitLogin, logoutAdmin,
-  exitAdmin, addAdminProduct, removeAdminProduct, saveAdmin, uploadProductImage, clearProductImage
+  exitAdmin, addAdminProduct, removeAdminProduct, saveAdmin, uploadProductImage, clearProductImage,
+  openQuote, closeQuote, newQuote, submitQuote
 });
 
 init();
