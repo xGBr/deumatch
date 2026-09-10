@@ -37,6 +37,10 @@ button{cursor:pointer;}
 .cat-pill{flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--gold-soft);background:var(--white);color:var(--cocoa);font-size:13px;white-space:nowrap;}
 .cat-pill.active{background:var(--cocoa-dark);border-color:var(--cocoa-dark);color:var(--cream);}
 
+/* Social links */
+.social-row{display:flex;gap:8px;flex-wrap:wrap;padding:0 18px 12px;}
+.social-link{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:999px;border:1px solid var(--gold-soft);background:var(--white);color:var(--cocoa-dark);font-size:12.5px;font-weight:600;text-decoration:none;}
+
 /* Notice */
 .notice{background:#FBE7C6;border:1px solid var(--gold-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;margin:4px 0 14px;color:var(--cocoa-dark);line-height:1.4;}
 .notice button{background:none;border:none;text-decoration:underline;color:var(--cocoa-dark);font-weight:700;cursor:pointer;padding:0;font-size:inherit;}
