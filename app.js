@@ -23,10 +23,12 @@ const productsRef = collection(db, "products");
 const DEFAULT_SETTINGS = {
   storeName: "Deu Match Aqui",
   tagline: "Doceria artesanal",
-  whatsappNumber: "5511999999999",
-  pixKey: "sua-chave-pix@exemplo.com",
-  merchantName: "DEU MATCH AQUI",
-  merchantCity: "SUA CIDADE",
+  instagramUrl: "https://www.instagram.com/deumatchdenew/",
+  siteUrl: "https://universopromos.com.br/",
+  whatsappNumber: "5519981061966",
+  pixKey: "19981061966",
+  merchantName: "DEU MATCH",
+  merchantCity: "COSMÓPOLIS",
   deliveryFee: 10,
   openTime: "09:00",
   closeTime: "19:00"
@@ -398,6 +400,13 @@ function headerView(){
   return '<div class="header"><img src="assets/logo.jpg" alt="Logo da loja">' +
     '<div class="brand"><h1>'+escapeHTML(state.settings.storeName)+'</h1><p>'+escapeHTML(state.settings.tagline)+'</p></div></div>';
 }
+function socialLinksView(){
+  const links = [];
+  if(state.settings.instagramUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.instagramUrl)+'" target="_blank" rel="noopener noreferrer">📷 Instagram</a>');
+  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🌐 Nosso site</a>');
+  if(links.length === 0) return "";
+  return '<div class="social-row">'+links.join("")+'</div>';
+}
 function categoriesView(){
   const cats = getCategories();
   return '<div class="cats">' + cats.map(c =>
@@ -528,6 +537,8 @@ function adminView(){
   html += '<div class="admin-section"><h3>Dados da loja</h3>' +
     '<div class="field"><label>Nome da loja</label><input type="text" value="'+escapeHTML(s.storeName)+'" oninput="state.adminDraft.settings.storeName=this.value"></div>' +
     '<div class="field"><label>Frase / assinatura</label><input type="text" value="'+escapeHTML(s.tagline)+'" oninput="state.adminDraft.settings.tagline=this.value"></div>' +
+    '<div class="field"><label>Instagram (link completo)</label><input type="text" value="'+escapeHTML(s.instagramUrl)+'" oninput="state.adminDraft.settings.instagramUrl=this.value" placeholder="https://www.instagram.com/seuusuario/"></div>' +
+    '<div class="field"><label>Site (link completo)</label><input type="text" value="'+escapeHTML(s.siteUrl)+'" oninput="state.adminDraft.settings.siteUrl=this.value" placeholder="https://seusite.com.br/"></div>' +
     '<div class="field"><label>WhatsApp para receber pedidos</label><input type="text" value="'+escapeHTML(s.whatsappNumber)+'" oninput="state.adminDraft.settings.whatsappNumber=this.value" placeholder="5511999999999"></div>' +
     '<p class="field-hint">Formato: código do país + DDD + número, só números (ex: 55 11 99999-9999 → 5511999999999).</p>' +
     '<div class="field"><label>Taxa de entrega (R$)</label><input type="number" step="0.01" min="0" value="'+s.deliveryFee+'" oninput="state.adminDraft.settings.deliveryFee=parseFloat(this.value)||0"></div>' +
@@ -576,7 +587,7 @@ function render(){
   if(state.view === "admin" && state.adminDraft){
     html = adminView();
   } else {
-    html = headerView() + categoriesView() + menuView() + cartBarView();
+    html = headerView() + socialLinksView() + categoriesView() + menuView() + cartBarView();
   }
   html += sheetView();
   html += loginModalView();
