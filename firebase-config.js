@@ -17,3 +17,9 @@ export const firebaseConfig = {
   messagingSenderId: "815414937961",
   appId: "1:815414937961:web:02c7c14151921f4d7d55f8"
 };
+
+// URL do seu Worker do Cloudflare (usado só pra enviar/servir as fotos dos
+// produtos — veja cloudflare-worker.js e o passo 9 do SETUP-FIREBASE.md).
+// Depois de publicar o Worker, troque pelo endereço real, algo como:
+// "https://deumatch-images.SEU-SUBDOMINIO.workers.dev"
+export const imageWorkerUrl = "https://deumatch-images.eu-gabrielsiles.workers.dev";
