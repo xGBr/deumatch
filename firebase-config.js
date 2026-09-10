@@ -6,20 +6,19 @@
 // pelo login de administrador (Firebase Authentication), não por esconder
 // este arquivo.
 //
-// Este arquivo só exporta os dados de configuração — a inicialização do
-// Firebase (initializeApp) já acontece dentro do app.js, que importa o SDK
-// direto da CDN do Google (não usamos bundler/npm neste projeto).
+// Troque os valores abaixo pelos do SEU projeto:
+// Firebase Console > ⚙️ Configurações do projeto > Seus apps > Config
 export const firebaseConfig = {
-  apiKey: "AIzaSyB8dGOcM9TZkr5qQAIV6KVEKlNnn4mxdfw",
-  authDomain: "deu-match-aqui.firebaseapp.com",
-  projectId: "deu-match-aqui",
-  storageBucket: "deu-match-aqui.firebasestorage.app",
-  messagingSenderId: "815414937961",
-  appId: "1:815414937961:web:02c7c14151921f4d7d55f8"
+  apiKey: "COLE_AQUI_SUA_API_KEY",
+  authDomain: "SEU-PROJETO.firebaseapp.com",
+  projectId: "SEU-PROJETO",
+  storageBucket: "SEU-PROJETO.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:xxxxxxxxxxxxxxxxxxxxxx"
 };
 
 // URL do seu Worker do Cloudflare (usado só pra enviar/servir as fotos dos
 // produtos — veja cloudflare-worker.js e o passo 9 do SETUP-FIREBASE.md).
 // Depois de publicar o Worker, troque pelo endereço real, algo como:
 // "https://deumatch-images.SEU-SUBDOMINIO.workers.dev"
-export const imageWorkerUrl = "https://deumatch-images.eu-gabrielsiles.workers.dev";
+export const imageWorkerUrl = "https://COLOQUE-AQUI-SUA-URL.workers.dev";
