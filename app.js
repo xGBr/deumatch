@@ -35,14 +35,14 @@ const DEFAULT_SETTINGS = {
 };
 
 const DEFAULT_PRODUCTS = [
-  {id:"p1",category:"Copos de Doce",name:"Copo de Doce de Leite",price:14,desc:"Camadas de doce de leite cremoso com raspas de chocolate.",img:"assets/doce-de-leite.jpg"},
-  {id:"p2",category:"Copos de Doce",name:"Copo de Ninho com Nutella",price:16,desc:"Creme de leite ninho intercalado com nutella.",img:""},
-  {id:"p3",category:"Copos de Doce",name:"Copo de Prestígio",price:15,desc:"Coco cremoso com chocolate meio amargo.",img:""},
-  {id:"p4",category:"Bombons",name:"Bombom Trufado",price:5.5,desc:"Casquinha crocante com recheio macio de trufa.",img:""},
-  {id:"p5",category:"Bombons",name:"Bombom de Morango",price:6,desc:"Morango fresco envolto em chocolate belga.",img:""},
-  {id:"p6",category:"Brigadeiros",name:"Brigadeiro Tradicional",price:3.5,desc:"O clássico, feito com chocolate 70%.",img:""},
-  {id:"p7",category:"Brigadeiros",name:"Brigadeiro de Pistache",price:5,desc:"Recheio de pistache com finalização crocante.",img:""},
-  {id:"p8",category:"Combos",name:"Caixa Presente (6 docinhos)",price:45,desc:"Seleção da casa, ideal para presentear.",img:""}
+  {id:"p1",category:"Copos de Doce",name:"Copo de Doce de Leite",price:14,desc:"Camadas de doce de leite cremoso com raspas de chocolate.",img:"assets/doce-de-leite.jpg",available:true},
+  {id:"p2",category:"Copos de Doce",name:"Copo de Ninho com Nutella",price:16,desc:"Creme de leite ninho intercalado com nutella.",img:"",available:true},
+  {id:"p3",category:"Copos de Doce",name:"Copo de Prestígio",price:15,desc:"Coco cremoso com chocolate meio amargo.",img:"",available:true},
+  {id:"p4",category:"Bombons",name:"Bombom Trufado",price:5.5,desc:"Casquinha crocante com recheio macio de trufa.",img:"",available:true},
+  {id:"p5",category:"Bombons",name:"Bombom de Morango",price:6,desc:"Morango fresco envolto em chocolate belga.",img:"",available:true},
+  {id:"p6",category:"Brigadeiros",name:"Brigadeiro Tradicional",price:3.5,desc:"O clássico, feito com chocolate 70%.",img:"",available:true},
+  {id:"p7",category:"Brigadeiros",name:"Brigadeiro de Pistache",price:5,desc:"Recheio de pistache com finalização crocante.",img:"",available:true},
+  {id:"p8",category:"Combos",name:"Caixa Presente (6 docinhos)",price:45,desc:"Seleção da casa, ideal para presentear.",img:"",available:true}
 ];
 
 const CATEGORY_EMOJI = {"Copos de Doce":"🍮","Bombons":"🍬","Brigadeiros":"🍫","Combos":"🎁"};
@@ -99,7 +99,7 @@ function addToCart(id, delta){ state.cart[id] = Math.max(0, (state.cart[id]||0) 
 /* ---------- Categorias ---------- */
 function getCategories(){
   const cats = ["Todos"];
-  state.products.forEach(p => { if(p.category && !cats.includes(p.category)) cats.push(p.category); });
+  state.products.forEach(p => { if(p.available !== false && p.category && !cats.includes(p.category)) cats.push(p.category); });
   return cats;
 }
 function setCategory(c){ state.activeCategory = c; render(); }
@@ -398,7 +398,7 @@ async function uploadProductImage(index, input){
   }
 }
 function addAdminProduct(){
-  state.adminDraft.products.push({id:"new-"+Date.now()+Math.floor(Math.random()*1000), category:"", name:"", price:0, desc:"", img:"", _isNew:true});
+  state.adminDraft.products.push({id:"new-"+Date.now()+Math.floor(Math.random()*1000), category:"", name:"", price:0, desc:"", img:"", available:true, _isNew:true});
   render();
 }
 function removeAdminProduct(i){
@@ -412,7 +412,7 @@ async function saveAdmin(){
     await setDoc(settingsRef, state.adminDraft.settings, {merge:true});
     const deletes = state.adminDraft.deletedIds.map(id => deleteDoc(doc(db,"products",id)));
     const writes = state.adminDraft.products.filter(p => p.name && p.name.trim()).map(p => {
-      const data = {category:p.category||"", name:p.name.trim(), price:Number(p.price)||0, desc:p.desc||"", img:p.img||""};
+      const data = {category:p.category||"", name:p.name.trim(), price:Number(p.price)||0, desc:p.desc||"", img:p.img||"", available: p.available !== false};
       return p._isNew ? addDoc(productsRef, data) : updateDoc(doc(db,"products",p.id), data);
     });
     await Promise.all(deletes.concat(writes));
@@ -470,6 +470,7 @@ function menuView(){
   const filterCat = state.activeCategory;
   const groups = {}; const order = [];
   state.products.forEach(p => {
+    if(p.available === false) return;
     if(filterCat !== "Todos" && p.category !== filterCat) return;
     if(!groups[p.category]){ groups[p.category] = []; order.push(p.category); }
     groups[p.category].push(p);
@@ -623,6 +624,7 @@ function adminView(){
     const removeBtn = p.img ? '<button type="button" class="logout-link" style="margin-top:6px;" onclick="clearProductImage('+i+')">Remover foto</button>' : '';
     html += '<div class="admin-product-row">' +
       '<button class="remove" onclick="removeAdminProduct('+i+')">Remover</button>' +
+      '<label class="availability-toggle"><input type="checkbox" '+(p.available!==false?"checked":"")+' onchange="state.adminDraft.products['+i+'].available=this.checked"> Disponível hoje</label>' +
       '<div class="field"><label>Categoria</label><input type="text" value="'+escapeHTML(p.category)+'" oninput="state.adminDraft.products['+i+'].category=this.value" placeholder="Ex: Copos de Doce"></div>' +
       '<div class="field"><label>Nome</label><input type="text" value="'+escapeHTML(p.name)+'" oninput="state.adminDraft.products['+i+'].name=this.value"></div>' +
       '<div class="field"><label>Preço (R$)</label><input type="number" step="0.01" min="0" value="'+p.price+'" oninput="state.adminDraft.products['+i+'].price=parseFloat(this.value)||0"></div>' +
@@ -677,7 +679,7 @@ function init(){
   onSnapshot(productsRef, snap => {
     if(!snap.empty){
       const list = [];
-      snap.forEach(d => list.push(Object.assign({id:d.id}, d.data())));
+      snap.forEach(d => list.push(Object.assign({id:d.id, available:true}, d.data())));
       state.products = list;
       state.productsLoaded = true;
     } else {
