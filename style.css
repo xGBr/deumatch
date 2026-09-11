@@ -124,6 +124,9 @@ button{cursor:pointer;}
 .back-link{background:none;border:none;color:var(--gold);font-size:13px;padding:0;}
 .logout-link{background:none;border:none;color:var(--rose-dark);font-size:12.5px;padding:0;}
 .admin-header h2{font-family:var(--font-serif);margin:6px 0 0;font-size:21px;}
+.admin-tabs{display:flex;gap:4px;margin:16px 0 4px;border-bottom:1px solid var(--line);}
+.admin-tab{flex:1;padding:10px 8px;background:none;border:none;border-bottom:2px solid transparent;font-size:14px;font-weight:600;color:var(--cocoa);opacity:.7;}
+.admin-tab.active{color:var(--cocoa-dark);border-bottom-color:var(--gold);opacity:1;}
 .admin-section{margin-bottom:26px;}
 .admin-section h3{font-family:var(--font-serif);font-size:16px;margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px;}
 .admin-product-row{border:1px solid var(--line);border-radius:10px;padding:14px 12px 6px;margin-bottom:12px;position:relative;background:var(--white);}
