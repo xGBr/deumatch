@@ -64,6 +64,7 @@ let state = {
   productsLoaded: false,
   currentUser: null,
   adminDraft: null,
+  adminTab: "produtos",
   loginOpen: false,
   loginEmail: "",
   loginPassword: "",
@@ -312,6 +313,7 @@ function openAdmin(){
   if(state.currentUser){
     const draftProducts = clone(state.products).map(p => state.productsLoaded ? p : Object.assign({}, p, {_isNew:true}));
     state.adminDraft = { settings: clone(state.settings), products: draftProducts, deletedIds: [] };
+    state.adminTab = "produtos";
     state.view = "admin";
   } else {
     state.loginOpen = true; state.loginEmail = ""; state.loginPassword = ""; state.loginError = "";
@@ -326,6 +328,7 @@ async function submitLogin(){
     state.loginOpen = false;
     const draftProducts = clone(state.products).map(p => state.productsLoaded ? p : Object.assign({}, p, {_isNew:true}));
     state.adminDraft = { settings: clone(state.settings), products: draftProducts, deletedIds: [] };
+    state.adminTab = "produtos";
     state.view = "admin";
     render();
   }catch(e){
@@ -351,6 +354,7 @@ async function logoutAdmin(){
   render();
 }
 function exitAdmin(){ state.adminDraft = null; state.view = "menu"; render(); }
+function setAdminTab(tab){ state.adminTab = tab; render(); }
 function clearProductImage(i){ state.adminDraft.products[i].img = ""; render(); }
 async function uploadProductImage(index, input){
   const file = input.files && input.files[0];
@@ -438,7 +442,7 @@ function headerView(){
 function socialLinksView(){
   const links = [];
   if(state.settings.instagramUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.instagramUrl)+'" target="_blank" rel="noopener noreferrer">📷 Instagram</a>');
-  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🌐 Parceiro</a>');
+  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🤝 Parceiro comercial</a>');
   if(links.length === 0) return "";
   return '<div class="social-row">'+links.join("")+'</div>';
 }
@@ -597,47 +601,54 @@ function adminView(){
   const prods = state.adminDraft.products;
   let html = '<div class="admin-header"><div class="admin-header-row"><button class="back-link" onclick="exitAdmin()">← Voltar ao cardápio</button><button class="logout-link" onclick="logoutAdmin()">Sair da conta</button></div><h2>Painel da loja</h2></div>';
 
-  html += '<div class="admin-section"><h3>Dados da loja</h3>' +
-    '<div class="field"><label>Nome da loja</label><input type="text" value="'+escapeHTML(s.storeName)+'" oninput="state.adminDraft.settings.storeName=this.value"></div>' +
-    '<div class="field"><label>Frase / assinatura</label><input type="text" value="'+escapeHTML(s.tagline)+'" oninput="state.adminDraft.settings.tagline=this.value"></div>' +
-    '<div class="field"><label>Instagram (link completo)</label><input type="text" value="'+escapeHTML(s.instagramUrl)+'" oninput="state.adminDraft.settings.instagramUrl=this.value" placeholder="https://www.instagram.com/seuusuario/"></div>' +
-    '<div class="field"><label>Site (link completo)</label><input type="text" value="'+escapeHTML(s.siteUrl)+'" oninput="state.adminDraft.settings.siteUrl=this.value" placeholder="https://seusite.com.br/"></div>' +
-    '<div class="field"><label>WhatsApp para receber pedidos</label><input type="text" value="'+escapeHTML(s.whatsappNumber)+'" oninput="state.adminDraft.settings.whatsappNumber=this.value" placeholder="5511999999999"></div>' +
-    '<p class="field-hint">Formato: código do país + DDD + número, só números (ex: 55 11 99999-9999 → 5511999999999).</p>' +
-    '<div class="field"><label>Taxa de entrega (R$)</label><input type="number" step="0.01" min="0" value="'+s.deliveryFee+'" oninput="state.adminDraft.settings.deliveryFee=parseFloat(this.value)||0"></div>' +
-    '<div class="field"><label>Horário de abertura</label><input type="time" value="'+escapeHTML(s.openTime)+'" oninput="state.adminDraft.settings.openTime=this.value"></div>' +
-    '<div class="field"><label>Horário de fechamento</label><input type="time" value="'+escapeHTML(s.closeTime)+'" oninput="state.adminDraft.settings.closeTime=this.value"></div>' +
-    '<p class="field-hint">Fora desse intervalo, o cliente pode navegar no cardápio, mas não consegue finalizar o pedido.</p>' +
+  html += '<div class="admin-tabs">' +
+    '<button class="admin-tab '+(state.adminTab==="produtos"?"active":"")+'" onclick="setAdminTab(\'produtos\')">Produtos</button>' +
+    '<button class="admin-tab '+(state.adminTab==="loja"?"active":"")+'" onclick="setAdminTab(\'loja\')">Dados da loja</button>' +
     '</div>';
 
-  html += '<div class="admin-section"><h3>Recebimento via Pix</h3>' +
-    '<div class="field"><label>Chave Pix</label><input type="text" value="'+escapeHTML(s.pixKey)+'" oninput="state.adminDraft.settings.pixKey=this.value" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"></div>' +
-    '<div class="field"><label>Nome do recebedor (até 25 caracteres)</label><input type="text" maxlength="25" value="'+escapeHTML(s.merchantName)+'" oninput="state.adminDraft.settings.merchantName=this.value"></div>' +
-    '<div class="field"><label>Cidade do recebedor (até 15 caracteres)</label><input type="text" maxlength="15" value="'+escapeHTML(s.merchantCity)+'" oninput="state.adminDraft.settings.merchantCity=this.value"></div>' +
-    '<p class="field-hint">Use os mesmos dados cadastrados na sua conta Pix, para o QR Code funcionar corretamente.</p>' +
-    '</div>';
-
-  html += '<div class="admin-section"><h3>Produtos do cardápio</h3>';
-  prods.forEach((p, i) => {
-    const uploadLabel = p._uploading ? "Enviando..." : "📷 Enviar foto";
-    const preview = p.img ? '<img src="'+p.img+'" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;">' : '';
-    const removeBtn = p.img ? '<button type="button" class="logout-link" style="margin-top:6px;" onclick="clearProductImage('+i+')">Remover foto</button>' : '';
-    html += '<div class="admin-product-row">' +
-      '<button class="remove" onclick="removeAdminProduct('+i+')">Remover</button>' +
-      '<label class="availability-toggle"><input type="checkbox" '+(p.available!==false?"checked":"")+' onchange="state.adminDraft.products['+i+'].available=this.checked"> Disponível hoje</label>' +
-      '<div class="field"><label>Categoria</label><input type="text" value="'+escapeHTML(p.category)+'" oninput="state.adminDraft.products['+i+'].category=this.value" placeholder="Ex: Copos de Doce"></div>' +
-      '<div class="field"><label>Nome</label><input type="text" value="'+escapeHTML(p.name)+'" oninput="state.adminDraft.products['+i+'].name=this.value"></div>' +
-      '<div class="field"><label>Preço (R$)</label><input type="number" step="0.01" min="0" value="'+p.price+'" oninput="state.adminDraft.products['+i+'].price=parseFloat(this.value)||0"></div>' +
-      '<div class="field"><label>Descrição</label><input type="text" value="'+escapeHTML(p.desc)+'" oninput="state.adminDraft.products['+i+'].desc=this.value"></div>' +
-      '<div class="field"><label>Foto do produto</label>' + preview +
-        '<input type="file" accept="image/*" id="file-'+i+'" style="display:none" onchange="uploadProductImage('+i+', this)">' +
-        '<button type="button" class="btn-secondary" style="margin-top:0;" '+(p._uploading?'disabled':'')+' onclick="document.getElementById(\'file-'+i+'\').click()">'+uploadLabel+'</button>' +
-        removeBtn +
-      '</div>' +
-      '<div class="field"><label>ou cole o link de uma foto</label><input type="text" value="'+escapeHTML(p.img)+'" oninput="state.adminDraft.products['+i+'].img=this.value" placeholder="https://..."></div>' +
+  if(state.adminTab === "loja"){
+    html += '<div class="admin-section"><h3>Dados da loja</h3>' +
+      '<div class="field"><label>Nome da loja</label><input type="text" value="'+escapeHTML(s.storeName)+'" oninput="state.adminDraft.settings.storeName=this.value"></div>' +
+      '<div class="field"><label>Frase / assinatura</label><input type="text" value="'+escapeHTML(s.tagline)+'" oninput="state.adminDraft.settings.tagline=this.value"></div>' +
+      '<div class="field"><label>Instagram (link completo)</label><input type="text" value="'+escapeHTML(s.instagramUrl)+'" oninput="state.adminDraft.settings.instagramUrl=this.value" placeholder="https://www.instagram.com/seuusuario/"></div>' +
+      '<div class="field"><label>Parceiro comercial (link completo)</label><input type="text" value="'+escapeHTML(s.siteUrl)+'" oninput="state.adminDraft.settings.siteUrl=this.value" placeholder="https://seusite.com.br/"></div>' +
+      '<div class="field"><label>WhatsApp para receber pedidos</label><input type="text" value="'+escapeHTML(s.whatsappNumber)+'" oninput="state.adminDraft.settings.whatsappNumber=this.value" placeholder="5511999999999"></div>' +
+      '<p class="field-hint">Formato: código do país + DDD + número, só números (ex: 55 11 99999-9999 → 5511999999999).</p>' +
+      '<div class="field"><label>Taxa de entrega (R$)</label><input type="number" step="0.01" min="0" value="'+s.deliveryFee+'" oninput="state.adminDraft.settings.deliveryFee=parseFloat(this.value)||0"></div>' +
+      '<div class="field"><label>Horário de abertura</label><input type="time" value="'+escapeHTML(s.openTime)+'" oninput="state.adminDraft.settings.openTime=this.value"></div>' +
+      '<div class="field"><label>Horário de fechamento</label><input type="time" value="'+escapeHTML(s.closeTime)+'" oninput="state.adminDraft.settings.closeTime=this.value"></div>' +
+      '<p class="field-hint">Fora desse intervalo, o cliente pode navegar no cardápio, mas não consegue finalizar o pedido.</p>' +
       '</div>';
-  });
-  html += '<button class="btn-secondary" onclick="addAdminProduct()">+ Adicionar produto</button></div>';
+
+    html += '<div class="admin-section"><h3>Recebimento via Pix</h3>' +
+      '<div class="field"><label>Chave Pix</label><input type="text" value="'+escapeHTML(s.pixKey)+'" oninput="state.adminDraft.settings.pixKey=this.value" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"></div>' +
+      '<div class="field"><label>Nome do recebedor (até 25 caracteres)</label><input type="text" maxlength="25" value="'+escapeHTML(s.merchantName)+'" oninput="state.adminDraft.settings.merchantName=this.value"></div>' +
+      '<div class="field"><label>Cidade do recebedor (até 15 caracteres)</label><input type="text" maxlength="15" value="'+escapeHTML(s.merchantCity)+'" oninput="state.adminDraft.settings.merchantCity=this.value"></div>' +
+      '<p class="field-hint">Use os mesmos dados cadastrados na sua conta Pix, para o QR Code funcionar corretamente.</p>' +
+      '</div>';
+  } else {
+    html += '<div class="admin-section">';
+    prods.forEach((p, i) => {
+      const uploadLabel = p._uploading ? "Enviando..." : "📷 Enviar foto";
+      const preview = p.img ? '<img src="'+p.img+'" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;">' : '';
+      const removeBtn = p.img ? '<button type="button" class="logout-link" style="margin-top:6px;" onclick="clearProductImage('+i+')">Remover foto</button>' : '';
+      html += '<div class="admin-product-row">' +
+        '<button class="remove" onclick="removeAdminProduct('+i+')">Remover</button>' +
+        '<label class="availability-toggle"><input type="checkbox" '+(p.available!==false?"checked":"")+' onchange="state.adminDraft.products['+i+'].available=this.checked"> Disponível hoje</label>' +
+        '<div class="field"><label>Categoria</label><input type="text" value="'+escapeHTML(p.category)+'" oninput="state.adminDraft.products['+i+'].category=this.value" placeholder="Ex: Copos de Doce"></div>' +
+        '<div class="field"><label>Nome</label><input type="text" value="'+escapeHTML(p.name)+'" oninput="state.adminDraft.products['+i+'].name=this.value"></div>' +
+        '<div class="field"><label>Preço (R$)</label><input type="number" step="0.01" min="0" value="'+p.price+'" oninput="state.adminDraft.products['+i+'].price=parseFloat(this.value)||0"></div>' +
+        '<div class="field"><label>Descrição</label><input type="text" value="'+escapeHTML(p.desc)+'" oninput="state.adminDraft.products['+i+'].desc=this.value"></div>' +
+        '<div class="field"><label>Foto do produto</label>' + preview +
+          '<input type="file" accept="image/*" id="file-'+i+'" style="display:none" onchange="uploadProductImage('+i+', this)">' +
+          '<button type="button" class="btn-secondary" style="margin-top:0;" '+(p._uploading?'disabled':'')+' onclick="document.getElementById(\'file-'+i+'\').click()">'+uploadLabel+'</button>' +
+          removeBtn +
+        '</div>' +
+        '<div class="field"><label>ou cole o link de uma foto</label><input type="text" value="'+escapeHTML(p.img)+'" oninput="state.adminDraft.products['+i+'].img=this.value" placeholder="https://..."></div>' +
+        '</div>';
+    });
+    html += '<button class="btn-secondary" onclick="addAdminProduct()">+ Adicionar produto</button></div>';
+  }
 
   html += '<button class="btn-primary" onclick="saveAdmin()">Salvar alterações</button>' +
     '<button class="btn-secondary" onclick="exitAdmin()">Cancelar</button>';
@@ -700,7 +711,7 @@ Object.assign(window, {
   state, setCategory, addToCart, openSheet, closeSheet, setDeliveryType, newOrder,
   finalizeOrder, copyPixCode, openAdmin, closeLogin, submitLogin, logoutAdmin,
   exitAdmin, addAdminProduct, removeAdminProduct, saveAdmin, uploadProductImage, clearProductImage,
-  openQuote, closeQuote, newQuote, submitQuote
+  openQuote, closeQuote, newQuote, submitQuote, setAdminTab
 });
 
 init();
