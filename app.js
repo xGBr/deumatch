@@ -438,7 +438,7 @@ function headerView(){
 function socialLinksView(){
   const links = [];
   if(state.settings.instagramUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.instagramUrl)+'" target="_blank" rel="noopener noreferrer">📷 Instagram</a>');
-  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🌐 Nosso site</a>');
+  if(state.settings.siteUrl) links.push('<a class="social-link" href="'+escapeHTML(state.settings.siteUrl)+'" target="_blank" rel="noopener noreferrer">🌐 Parceiro</a>');
   if(links.length === 0) return "";
   return '<div class="social-row">'+links.join("")+'</div>';
 }
